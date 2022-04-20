@@ -14,6 +14,7 @@ def index():
     data = Product.query.all()
     product_schema = ProductSchema(many=True)
     products = product_schema.dump(data,many=True)
+    db.session.commit()
     return make_response(jsonify({"product": products}))
 
 @app.route('/products', methods = ['POST'])
@@ -23,7 +24,7 @@ def create_product():
     product = Product(title=data["title"],productDescription=data["productDescription"],productBrand=data["productBrand"],price=data["price"])
     db.session.add(product)
     db.session.commit()
-    product_schema.dump(product)
+    #product_schema.dump(product)
     #product = product_schema.load(data)
     result = product_schema.dump(product)
     return make_response(jsonify({"product": result}),200)
@@ -55,7 +56,7 @@ def delete_product_by_id(id):
     current_db_sessions = db.object_session(get_product)
     current_db_sessions.delete(get_product)
     db.session.commit()
-    return make_response(""),204)
+    return make_response("",204)
 
 @app.route('/', methods=['GET', 'POST'])
 def home():
