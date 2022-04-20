@@ -4,8 +4,8 @@ import requests
 import json
 import unicodedata
 
-app = Flask(__name__)
-app.config['SECRET_KEY'] = '3141592653589793238462643383279502884197169399'
+#app = Flask(__name__)
+#app.config['SECRET_KEY'] = '3141592653589793238462643383279502884197169399'
 
 @app.route('/', methods=['GET', 'POST'])
 def home():

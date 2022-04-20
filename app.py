@@ -3,61 +3,30 @@ from flask_sqlalchemy import SQLAlchemy
 from marshmallow_sqlalchemy import SQLAlchemySchema
 from marshmallow import fields
 from forms import SearchForm
-
-app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI']='mysql+pymysql://admin:testedafiti123@teste-dafiti.cey2lkidksyb.eu-west-1.rds.amazonaws.com:3306/Dafiti'
-app.config['SECRET_KEY'] = '3141592653589793238462643383279502884197169399'
-db = SQLAlchemy(app)
-
-###Models####
-class Product(db.Model):
-    __tablename__ = "products"
-    id = db.Column(db.Integer, primary_key=True)
-    title = db.Column(db.String(20))
-    productDescription = db.Column(db.String(100))
-    productBrand = db.Column(db.String(20))
-    price = db.Column(db.Integer)
-
-    def create(self):
-      db.session.add(self)
-      db.session.commit()
-      return self
-    def __init__(self,title,productDescription,productBrand,price):
-        self.title = title
-        self.productDescription = productDescription
-        self.productBrand = productBrand
-        self.price = price
-    def __repr__(self):
-        return '' % self.id
-db.create_all()
-
-
-class ProductSchema(SQLAlchemySchema):
-    class Meta(SQLAlchemySchema.Meta):
-        model = Product
-        sqla_session = db.session
-    id = fields.Number(dump_only=True)
-    title = fields.String(required=True)
-    productDescription = fields.String(required=True)
-    productBrand = fields.String(required=True)
-    price = fields.Number(required=True)
-
+from model import Product,ProductSchema
+from flask_marshmallow import Marshmallow
+from marshmallow import fields
+from settings import db,app,ma
+import json
 
 @app.route('/products', methods = ['GET'])
 def index():
-    get_products = Product.query.all()
+    data = Product.query.all()
     product_schema = ProductSchema(many=True)
-    products = product_schema.dump(get_products)
+    products = product_schema.dump(data,many=True)
     return make_response(jsonify({"product": products}))
 
 @app.route('/products', methods = ['POST'])
 def create_product():
     data = request.get_json()
     product_schema = ProductSchema()
-    product = product_schema.load(data)
-    result = product_schema.dump(product.create())
+    product = Product(title=data["title"],productDescription=data["productDescription"],productBrand=data["productBrand"],price=data["price"])
+    db.session.add(product)
+    db.session.commit()
+    product_schema.dump(product)
+    #product = product_schema.load(data)
+    result = product_schema.dump(product)
     return make_response(jsonify({"product": result}),200)
-
 
 
 @app.route('/products/<id>', methods = ['PUT'])
@@ -71,8 +40,10 @@ def update_product_by_id(id):
     if data.get('productBrand'):
         get_product.productBrand = data['productBrand']
     if data.get('price'):
-        get_product.price= data['price']    
-    db.session.add(get_product)
+        get_product.price= data['price']  
+
+    current_db_sessions = db.object_session(get_product)  
+    current_db_sessions.add(get_product)
     db.session.commit()
     product_schema = ProductSchema(only=['id', 'title', 'productDescription','productBrand','price'])
     product = product_schema.dump(get_product)
@@ -80,10 +51,11 @@ def update_product_by_id(id):
 
 @app.route('/products/<id>', methods = ['DELETE'])
 def delete_product_by_id(id):
-    get_product = Product.query.get(id)
-    db.session.delete(get_product)
+    get_product = Product.query.filter_by(id=id).one()
+    current_db_sessions = db.object_session(get_product)
+    current_db_sessions.delete(get_product)
     db.session.commit()
-    return make_response("",204)
+    return make_response(""),204)
 
 @app.route('/', methods=['GET', 'POST'])
 def home():
@@ -92,13 +64,23 @@ def home():
         return redirect(url_for('search', name=form.username.data))
     return render_template('search.html', form=form)
 
-@app.route('/products/<title>')
+@app.route('/products/<title>', methods = ['GET'])
 def search(title):
-    data = request.get_json()
-    get_product = Product.query.get(title)
+    get_products = Product.query.get(title)
+    product_schema = ProductSchema(many=True)
+    products = product_schema.dump(get_products)
+    return make_response(jsonify({"product": products}))
 
-    info = requests.get('http://localhost:5000/search/'+name)
-    info = unicodedata.normalize('NFKD', info.text).encode('ascii','ignore')
-    info = json.loads(info)
-    return render_template('show.html', info=info)
+#@app.route('/products/<title>')
+#def search(title):
+#    data = request.get_json()
+#    get_product = Product.query.get(title)
 
+#    info = requests.get('http://localhost:5000/search/'+name)
+#    info = unicodedata.normalize('NFKD', info.text).encode('ascii','ignore')
+#    info = json.loads(info)
+#    return render_template('show.html', info=info)
+
+
+if __name__ == "__main__":
+    app.run(debug=True)
