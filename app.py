@@ -11,29 +11,28 @@ import json
 
 @app.route('/products', methods = ['GET'])
 def index():
-    data = Product.query.all()
-    product_schema = ProductSchema(many=True)
-    products = product_schema.dump(data,many=True)
+    data = db.session.query(Product).all()
     db.session.commit()
+    product_schema = ProductSchema(many=True)
+    products = product_schema.dump(data,many=True)    
     return make_response(jsonify({"product": products}))
+
 
 @app.route('/products', methods = ['POST'])
 def create_product():
     data = request.get_json()
     product_schema = ProductSchema()
     product = Product(title=data["title"],productDescription=data["productDescription"],productBrand=data["productBrand"],price=data["price"])
-    db.session.add(product)
-    db.session.commit()
-    #product_schema.dump(product)
-    #product = product_schema.load(data)
+    db.session.add(product)    
     result = product_schema.dump(product)
+    db.session.commit()
     return make_response(jsonify({"product": result}),200)
 
 
 @app.route('/products/<id>', methods = ['PUT'])
 def update_product_by_id(id):
     data = request.get_json()
-    get_product = Product.query.get(id)
+    get_product = db.session.query(Product).get(id)
     if data.get('title'):
         get_product.title = data['title']
     if data.get('productDescription'):
@@ -43,8 +42,7 @@ def update_product_by_id(id):
     if data.get('price'):
         get_product.price= data['price']  
 
-    current_db_sessions = db.object_session(get_product)  
-    current_db_sessions.add(get_product)
+    db.session.add(get_product)
     db.session.commit()
     product_schema = ProductSchema(only=['id', 'title', 'productDescription','productBrand','price'])
     product = product_schema.dump(get_product)
@@ -52,9 +50,8 @@ def update_product_by_id(id):
 
 @app.route('/products/<id>', methods = ['DELETE'])
 def delete_product_by_id(id):
-    get_product = Product.query.filter_by(id=id).one()
-    current_db_sessions = db.object_session(get_product)
-    current_db_sessions.delete(get_product)
+    get_product = db.session.query(Product).filter_by(id=id).one()
+    db.session.delete(get_product)
     db.session.commit()
     return make_response("",204)
 
